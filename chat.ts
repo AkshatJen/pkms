@@ -22,27 +22,38 @@ async function getAnswer(query: string) {
   });
 
   // Search for relevant documents
-  const results = await vectorStore.similaritySearch(query, 5);
-  const context = results.map((doc) => doc.pageContent).join('\n\n---\n\n');
+  const resultsWithScores = await vectorStore.similaritySearchWithScore(
+    query,
+    15
+  ); // query is string
+
+  const filtered = resultsWithScores
+    .filter(([doc, score]) => score < 0.5)
+    .map(([doc]) => doc); // Extract only documents
+
+  const context = filtered.map((doc) => doc.pageContent).join('\n\n---\n\n');
 
   // Prompt template for chat generation
   const prompt = PromptTemplate.fromTemplate(`
-You are an intelligent assistant helping the user understand their work logs.
-
-Use the following context to answer the question.
-
-Context:
-{context}
-
-Question:
-{question}
-
-Answer in a clear and helpful way.
-`);
+    You are a professional assistant reviewing detailed work logs.
+    
+    Use the context below to generate a full, rich, and organized summary in paragraph form. Be as specific as possible. If tasks are listed, group and explain them clearly.
+    
+    If the answer isn't available, say "I don't have enough data from the logs."
+    
+    Context:
+    {context}
+    
+    Question:
+    {question}
+    
+    Detailed Answer:
+    `);
 
   const model = new OpenAI({
     temperature: 0.3,
     openAIApiKey: process.env.OPENAI_API_KEY,
+    maxTokens: 2048, // Give it room to generate
   });
 
   const chain = prompt.pipe(model).pipe(new StringOutputParser());

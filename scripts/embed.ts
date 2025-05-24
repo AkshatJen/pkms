@@ -34,8 +34,9 @@ async function run() {
   console.log(`🔍 Found ${files.length} markdown files`);
 
   const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 500,
-    chunkOverlap: 50,
+    chunkSize: 1000,
+    chunkOverlap: 150,
+    separators: ['\n## ', '\n### ', '\n\n', '\n', ' '],
   });
 
   const embeddings = new OpenAIEmbeddings({
