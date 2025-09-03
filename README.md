@@ -21,10 +21,12 @@ pkms/
 │   │   └── 2025-08-27.md
 │   └── ...
 ├── scripts/
-│   └── embed.ts
-│   └── update-embeddings.ts # Incremental embedding updates
-├── .env.example             # Initial embedding generation
+│   ├── simple-embed.ts      # Main embedding script (recommended)
+│   ├── update-embeddings.ts # Incremental updates (for small changes)
+│   ├── embed.ts            # Legacy embedding script
+│   └── test-embeddings.ts   # Test and debug embeddings
 ├── chat.ts                  # Main chat interface
+├── .env                     # Environment variables (create this)
 └── README.md
 ```
 
@@ -67,7 +69,7 @@ chroma run --host localhost --port 8000
 4. **Generate initial embeddings:**
 
 ```bash
-npx ts-node scripts/embed.ts
+npx ts-node scripts/simple-embed.ts
 ```
 
 ## 📖 Usage
@@ -110,16 +112,22 @@ npx ts-node chat.ts
 
 ### Updating Embeddings
 
-**Daily updates** (recommended after adding new logs):
+**Recommended approach** (most reliable):
 
 ```bash
-npx ts-node /scripts/update-embeddings.ts
+npx ts-node scripts/simple-embed.ts
 ```
 
-**Force complete rebuild** (weekly maintenance):
+**For small incremental updates** (only a few new files):
 
 ```bash
-npx ts-node /scripts/update-embeddings.ts --force
+npx ts-node scripts/update-embeddings.ts
+```
+
+**Test your embeddings**:
+
+```bash
+npx ts-node scripts/test-embeddings.ts
 ```
 
 ## 🔧 Technical Details
@@ -156,14 +164,14 @@ npx ts-node /scripts/update-embeddings.ts --force
 
 ```bash
 # Regenerate embeddings
-npx ts-node scripts/embed.ts
+npx ts-node scripts/simple-embed.ts
 ```
 
 **2. "No data available" for recent queries:**
 
 ```bash
 # Update embeddings with recent files
-npx ts-node scripts/update-embeddings.ts
+npx ts-node scripts/simple-embed.ts
 ```
 
 **3. Token limit exceeded:**
@@ -199,14 +207,15 @@ curl -s http://localhost:8000/api/v1/collections
 ### Daily Routine
 
 1. Add new work log: `data/Month Year/YYYY-MM-DD.md`
-2. Update embeddings: `npx ts-node /scripts/update-embeddings.ts`
+2. Update embeddings: `npx ts-node scripts/update-embeddings.ts` (or `simple-embed.ts` for reliability)
 3. Query your work: `npx ts-node chat.ts`
 
 ### Weekly Maintenance
 
-1. Force rebuild embeddings: `npx ts-node /scripts/update-embeddings.ts --force`
-2. Review and organize log files
-3. Test temporal queries for the past week
+1. Full rebuild embeddings: `npx ts-node scripts/simple-embed.ts`
+2. Test embeddings: `npx ts-node scripts/test-embeddings.ts`
+3. Review and organize log files
+4. Test temporal queries for the past week
 
 ## 🛡️ Security & Privacy
 

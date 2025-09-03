@@ -1,5 +1,16 @@
 #!/usr/bin/env npx ts-node
 
+/**
+ * Incremental Embedding Update Script for PKMS
+ *
+ * This script only processes files that have been modified since the last update.
+ * For a complete rebuild, use the simple-embed.ts script instead.
+ *
+ * Usage:
+ *   npx ts-node scripts/update-embeddings.ts        # Update only modified files
+ *   npx ts-node scripts/update-embeddings.ts --force # Force complete rebuild
+ */
+
 import fs from 'fs';
 import path from 'path';
 import { OpenAIEmbeddings } from '@langchain/openai';
@@ -56,10 +67,16 @@ function getModifiedFiles(lastUpdate: Date): string[] {
 }
 
 async function updateEmbeddings(force: boolean = false) {
+  if (force) {
+    console.log(
+      '🔄 Force rebuild requested. Use simple-embed.ts for better reliability.'
+    );
+    console.log('Run: npx ts-node scripts/simple-embed.ts');
+    return;
+  }
+
   const lastUpdate = getLastUpdateTime();
-  const modifiedFiles = force
-    ? getMarkdownFilesRecursively(DATA_DIR)
-    : getModifiedFiles(lastUpdate);
+  const modifiedFiles = getModifiedFiles(lastUpdate);
 
   if (modifiedFiles.length === 0) {
     console.log(
@@ -68,15 +85,18 @@ async function updateEmbeddings(force: boolean = false) {
     return;
   }
 
-  console.log(
-    `🔄 Found ${modifiedFiles.length} ${
-      force ? 'files' : 'modified files'
-    } to process`
-  );
+  console.log(`🔄 Found ${modifiedFiles.length} modified files to process`);
+
+  // For simplicity, if there are many modified files, recommend full rebuild
+  if (modifiedFiles.length > 10) {
+    console.log('⚠️ Many files modified. Recommend full rebuild with:');
+    console.log('npx ts-node scripts/simple-embed.ts');
+    return;
+  }
 
   const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 1000,
-    chunkOverlap: 150,
+    chunkSize: 800,
+    chunkOverlap: 100,
     separators: ['\n## ', '\n### ', '\n\n', '\n', ' '],
   });
 
@@ -104,25 +124,25 @@ async function updateEmbeddings(force: boolean = false) {
     console.log(`✅ Processed ${fileName} (${chunks.length} chunks)`);
   }
 
-  if (force) {
-    // For force update, recreate the entire collection
-    await Chroma.fromDocuments(docs, embeddings, {
-      collectionName: COLLECTION_NAME,
-      url: CHROMA_URL,
-      collectionMetadata: { source: 'markdown-files' },
-    });
-  } else {
-    // For incremental updates, add to existing collection
+  try {
     const vectorStore = await Chroma.fromExistingCollection(embeddings, {
       collectionName: COLLECTION_NAME,
       url: CHROMA_URL,
     });
 
     await vectorStore.addDocuments(docs);
+    setLastUpdateTime();
+    console.log('✅ Embeddings updated successfully.');
+  } catch (error) {
+    console.log(
+      '⚠️ Error with incremental update. Recommend full rebuild with:'
+    );
+    console.log('npx ts-node scripts/simple-embed.ts');
+    console.error(
+      'Error:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
   }
-
-  setLastUpdateTime();
-  console.log('✅ Embeddings updated successfully.');
 }
 
 // CLI interface
