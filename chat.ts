@@ -10,6 +10,115 @@ dotenv.config();
 const COLLECTION_NAME = 'work-logs';
 const CHROMA_URL = 'http://localhost:8000'; // Local Chroma instance
 
+// Helper function to parse date from filename
+function extractDateFromFilename(filename: string): Date | null {
+  const dateMatch = filename.match(/(\d{4}-\d{2}-\d{2})/);
+  if (dateMatch) {
+    return new Date(dateMatch[1]);
+  }
+  return null;
+}
+
+// Helper function to get date range for temporal queries
+function getDateRangeForQuery(query: string): {
+  startDate: Date | null;
+  endDate: Date | null;
+} {
+  const now = new Date();
+  const queryLower = query.toLowerCase();
+
+  if (queryLower.includes('last week') || queryLower.includes('past week')) {
+    const endDate = new Date(now);
+    const startDate = new Date(now);
+    startDate.setDate(now.getDate() - 7);
+    return { startDate, endDate };
+  }
+
+  if (queryLower.includes('this week')) {
+    const startDate = new Date(now);
+    const dayOfWeek = now.getDay();
+    startDate.setDate(now.getDate() - dayOfWeek);
+    return { startDate, endDate: now };
+  }
+
+  if (queryLower.includes('last month') || queryLower.includes('past month')) {
+    const endDate = new Date(now);
+    const startDate = new Date(now);
+    startDate.setMonth(now.getMonth() - 1);
+    return { startDate, endDate };
+  }
+
+  if (queryLower.includes('today')) {
+    const startDate = new Date(now);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+    return { startDate, endDate };
+  }
+
+  if (queryLower.includes('yesterday')) {
+    const startDate = new Date(now);
+    startDate.setDate(now.getDate() - 1);
+    startDate.setHours(0, 0, 0, 0);
+    const endDate = new Date(startDate);
+    endDate.setHours(23, 59, 59, 999);
+    return { startDate, endDate };
+  }
+
+  // Handle "recent", "lately", "last few days"
+  if (
+    queryLower.includes('recent') ||
+    queryLower.includes('lately') ||
+    queryLower.includes('last few days')
+  ) {
+    const endDate = new Date(now);
+    const startDate = new Date(now);
+    startDate.setDate(now.getDate() - 5);
+    return { startDate, endDate };
+  }
+
+  // Handle "late August", "early September", etc. (but not "work in August")
+  const monthMatch = queryLower.match(
+    /\b(late|early|mid)\s+(january|february|march|april|may|june|july|august|september|october|november|december)\b/
+  );
+  if (monthMatch) {
+    const [, period, monthName] = monthMatch;
+    const monthIndex = [
+      'january',
+      'february',
+      'march',
+      'april',
+      'may',
+      'june',
+      'july',
+      'august',
+      'september',
+      'october',
+      'november',
+      'december',
+    ].indexOf(monthName);
+
+    const year = now.getFullYear();
+    let startDate: Date, endDate: Date;
+
+    if (period === 'early') {
+      startDate = new Date(year, monthIndex, 1);
+      endDate = new Date(year, monthIndex, 10);
+    } else if (period === 'mid') {
+      startDate = new Date(year, monthIndex, 11);
+      endDate = new Date(year, monthIndex, 20);
+    } else {
+      // late
+      startDate = new Date(year, monthIndex, 21);
+      endDate = new Date(year, monthIndex + 1, 0); // Last day of month
+    }
+
+    return { startDate, endDate };
+  }
+
+  return { startDate: null, endDate: null };
+}
+
 async function getAnswer(query: string) {
   // Initialize embeddings and vector store
   const embeddings = new OpenAIEmbeddings({
@@ -21,39 +130,96 @@ async function getAnswer(query: string) {
     url: CHROMA_URL,
   });
 
-  // Search for relevant documents
-  const resultsWithScores = await vectorStore.similaritySearchWithScore(
-    query,
-    15
-  ); // query is string
+  // Get date range for temporal queries
+  const { startDate, endDate } = getDateRangeForQuery(query);
 
-  const filtered = resultsWithScores
-    .filter(([doc, score]) => score < 0.5)
-    .map(([doc]) => doc); // Extract only documents
+  let filtered: any[] = [];
 
-  const context = filtered.map((doc) => doc.pageContent).join('\n\n---\n\n');
+  if (startDate && endDate) {
+    // For temporal queries, get ALL documents and filter by date first
+    const allResults = await vectorStore.similaritySearchWithScore(
+      'work tasks projects', // Broad search to get all work-related content
+      100 // Get many results to ensure we capture all date-relevant docs
+    );
 
-  // Prompt template for chat generation
+    // Filter by date first
+    const dateFiltered = allResults
+      .map(([doc]) => doc)
+      .filter((doc) => {
+        const docDate = extractDateFromFilename(doc.metadata.source || '');
+        if (docDate) {
+          return docDate >= startDate && docDate <= endDate;
+        }
+        return false;
+      });
+
+    // Sort by date (most recent first)
+    dateFiltered.sort((a, b) => {
+      const dateA = extractDateFromFilename(a.metadata.source || '');
+      const dateB = extractDateFromFilename(b.metadata.source || '');
+      if (dateA && dateB) {
+        return dateB.getTime() - dateA.getTime();
+      }
+      return 0;
+    });
+
+    filtered = dateFiltered;
+  } else {
+    // For non-temporal queries, use semantic search
+    const resultsWithScores = await vectorStore.similaritySearchWithScore(
+      query,
+      20
+    );
+
+    filtered = resultsWithScores
+      .filter(([, score]) => score < 0.5)
+      .map(([doc]) => doc);
+  }
+
+  // Limit the number of documents to prevent token overflow
+  filtered = filtered.slice(0, 10);
+
+  // Check if we have any relevant documents
+  if (filtered.length === 0) {
+    return "I don't have enough data from the logs for that time period.";
+  }
+
+  const context = filtered
+    .map((doc) => {
+      const docDate = extractDateFromFilename(doc.metadata.source || '');
+      const dateStr = docDate
+        ? docDate.toISOString().split('T')[0]
+        : 'Unknown date';
+      return `[${dateStr}] ${doc.pageContent}`;
+    })
+    .join('\n\n---\n\n');
+
+  // Enhanced prompt template with date awareness
+  const currentDate = new Date().toISOString().split('T')[0];
   const prompt = PromptTemplate.fromTemplate(`
-    You are a professional assistant reviewing detailed work logs.
-    
-    Use the context below to generate a full, rich, and organized summary in paragraph form. Be as specific as possible. If tasks are listed, group and explain them clearly.
-    
-    If the answer isn't available, say "I don't have enough data from the logs."
-    
+    You are a professional assistant reviewing detailed work logs. Today's date is ${currentDate}.
+
+    Use the context below to generate a full, rich, and organized summary. Be as specific as possible about dates and tasks.
+    Each entry is prefixed with [YYYY-MM-DD] to show the date.
+
+    When answering temporal queries like "last week" or "this week", focus on the relevant date range and organize the response chronologically.
+
+    ONLY say "I don't have enough data from the logs for that time period" if the context is completely empty or contains no relevant information.
+
     Context:
     {context}
-    
+
     Question:
     {question}
-    
+
     Detailed Answer:
     `);
 
   const model = new OpenAI({
     temperature: 0.3,
     openAIApiKey: process.env.OPENAI_API_KEY,
-    maxTokens: 2048, // Give it room to generate
+    maxTokens: 1000,
+    modelName: 'gpt-3.5-turbo-instruct', // Better model with larger context
   });
 
   const chain = prompt.pipe(model).pipe(new StringOutputParser());
