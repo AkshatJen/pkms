@@ -21,9 +21,10 @@ pkms/
 │   │   └── 2025-08-27.md
 │   └── ...
 ├── scripts/
-│   └── embed.ts            # Initial embedding generation
-├── chat.ts                 # Main chat interface
-├── update-embeddings.ts    # Automated embedding updates
+│   └── embed.ts
+│   └── update-embeddings.ts # Incremental embedding updates
+├── .env.example             # Initial embedding generation
+├── chat.ts                  # Main chat interface
 └── README.md
 ```
 
@@ -112,13 +113,13 @@ npx ts-node chat.ts
 **Daily updates** (recommended after adding new logs):
 
 ```bash
-npx ts-node update-embeddings.ts
+npx ts-node /scripts/update-embeddings.ts
 ```
 
 **Force complete rebuild** (weekly maintenance):
 
 ```bash
-npx ts-node update-embeddings.ts --force
+npx ts-node /scripts/update-embeddings.ts --force
 ```
 
 ## 🔧 Technical Details
@@ -162,7 +163,7 @@ npx ts-node scripts/embed.ts
 
 ```bash
 # Update embeddings with recent files
-npx ts-node update-embeddings.ts
+npx ts-node scripts/update-embeddings.ts
 ```
 
 **3. Token limit exceeded:**
@@ -198,12 +199,12 @@ curl -s http://localhost:8000/api/v1/collections
 ### Daily Routine
 
 1. Add new work log: `data/Month Year/YYYY-MM-DD.md`
-2. Update embeddings: `npx ts-node update-embeddings.ts`
+2. Update embeddings: `npx ts-node /scripts/update-embeddings.ts`
 3. Query your work: `npx ts-node chat.ts`
 
 ### Weekly Maintenance
 
-1. Force rebuild embeddings: `npx ts-node update-embeddings.ts --force`
+1. Force rebuild embeddings: `npx ts-node /scripts/update-embeddings.ts --force`
 2. Review and organize log files
 3. Test temporal queries for the past week
 
