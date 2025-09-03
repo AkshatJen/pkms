@@ -10,7 +10,7 @@ import { Document } from 'langchain/document';
 
 dotenv.config();
 
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = path.join(__dirname, '../data');
 const COLLECTION_NAME = 'work-logs';
 const CHROMA_URL = 'http://localhost:8000';
 
@@ -49,7 +49,7 @@ function getMarkdownFilesRecursively(folderPath: string): string[] {
 
 function getModifiedFiles(lastUpdate: Date): string[] {
   const allFiles = getMarkdownFilesRecursively(DATA_DIR);
-  return allFiles.filter(file => {
+  return allFiles.filter((file) => {
     const stats = fs.statSync(file);
     return stats.mtime > lastUpdate;
   });
@@ -57,14 +57,22 @@ function getModifiedFiles(lastUpdate: Date): string[] {
 
 async function updateEmbeddings(force: boolean = false) {
   const lastUpdate = getLastUpdateTime();
-  const modifiedFiles = force ? getMarkdownFilesRecursively(DATA_DIR) : getModifiedFiles(lastUpdate);
+  const modifiedFiles = force
+    ? getMarkdownFilesRecursively(DATA_DIR)
+    : getModifiedFiles(lastUpdate);
 
   if (modifiedFiles.length === 0) {
-    console.log('✅ No new or modified files found. Embeddings are up to date.');
+    console.log(
+      '✅ No new or modified files found. Embeddings are up to date.'
+    );
     return;
   }
 
-  console.log(`🔄 Found ${modifiedFiles.length} ${force ? 'files' : 'modified files'} to process`);
+  console.log(
+    `🔄 Found ${modifiedFiles.length} ${
+      force ? 'files' : 'modified files'
+    } to process`
+  );
 
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize: 1000,
@@ -109,7 +117,7 @@ async function updateEmbeddings(force: boolean = false) {
       collectionName: COLLECTION_NAME,
       url: CHROMA_URL,
     });
-    
+
     await vectorStore.addDocuments(docs);
   }
 
