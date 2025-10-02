@@ -1,14 +1,21 @@
 {
     "compilerOptions": {
-      "module": "CommonJS", // this is key
+      "module": "CommonJS",
       "target": "ES2020",
       "moduleResolution": "Node",
       "esModuleInterop": true,
       "outDir": "./dist",
       "resolveJsonModule": true,
       "strict": true,
-      "baseUrl": "."
+      "baseUrl": ".",
+      "paths": {
+        "@domain/*": ["src/domain/*"],
+        "@application/*": ["src/application/*"],
+        "@ui/*": ["src/ui/*"],
+        "@infrastructure/*": ["src/infrastructure/*"]
+      }
     },
-    "include": ["scripts", "data"]
+    "include": ["src/**/*", "scripts/**/*"],
+    "exclude": ["node_modules", "dist", "data"]
   }
   

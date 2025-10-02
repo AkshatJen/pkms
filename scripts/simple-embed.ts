@@ -47,7 +47,7 @@ async function simpleEmbed() {
 
   // Check if ChromaDB is running
   try {
-    const response = await fetch(`${CHROMA_URL}/api/v1/heartbeat`);
+    const response = await fetch(`${CHROMA_URL}/api/v2/heartbeat`);
     if (!response.ok) {
       throw new Error('ChromaDB not responding');
     }
@@ -108,7 +108,7 @@ async function simpleEmbed() {
   try {
     // Clear existing collection by trying to delete it
     try {
-      await fetch(`${CHROMA_URL}/api/v1/collections/${COLLECTION_NAME}`, {
+      await fetch(`${CHROMA_URL}/api/v2/collections/${COLLECTION_NAME}`, {
         method: 'DELETE',
       });
       console.log('🗑️ Cleared existing collection');

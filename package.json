@@ -1,6 +1,20 @@
 {
   "name": "pkms",
+  "version": "2.0.0",
+  "description": "Personal Knowledge Management System with Domain-Driven Design architecture",
   "packageManager": "yarn@4.9.1",
+  "scripts": {
+    "chat": "npx ts-node src/main/chat.ts",
+    "embed": "npx ts-node src/main/embed.ts",
+    "update-embeddings": "npx ts-node src/main/update-embeddings.ts",
+    "test-embeddings": "npx ts-node src/main/test-embeddings.ts",
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "legacy:chat": "npx ts-node chat.ts",
+    "legacy:embed": "npx ts-node scripts/simple-embed.ts",
+    "legacy:update": "npx ts-node scripts/update-embeddings.ts",
+    "legacy:test": "npx ts-node scripts/test-embeddings.ts"
+  },
   "devDependencies": {
     "@types/node": "^22.15.21",
     "ts-node": "^10.9.2",
@@ -9,6 +23,7 @@
   "dependencies": {
     "@langchain/community": "^0.3.44",
     "@langchain/core": "^0.3.57",
+    "@langchain/openai": "^0.3.27",
     "chromadb": "^2.4.6",
     "dotenv": "^16.5.0",
     "langchain": "^0.3.27",

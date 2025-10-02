@@ -2,10 +2,10 @@
 
 /**
  * Test Embeddings Script for PKMS
- * 
+ *
  * This script tests the embedding system by running sample queries
  * and showing the results. Useful for debugging and verification.
- * 
+ *
  * Usage:
  *   npx ts-node scripts/test-embeddings.ts
  */
@@ -24,7 +24,7 @@ async function testEmbeddings() {
 
   try {
     // Check ChromaDB connection
-    const response = await fetch(`${CHROMA_URL}/api/v1/heartbeat`);
+    const response = await fetch(`${CHROMA_URL}/api/v2/heartbeat`);
     if (!response.ok) {
       throw new Error('ChromaDB not responding');
     }
@@ -47,35 +47,41 @@ async function testEmbeddings() {
       'TDD meetings',
       'recent work',
       'Jira documentation',
-      'late August work'
+      'late August work',
     ];
 
     for (const query of testQueries) {
       console.log(`🔍 Testing query: "${query}"`);
       const results = await vectorStore.similaritySearchWithScore(query, 3);
-      
+
       if (results.length === 0) {
         console.log('   No results found\n');
         continue;
       }
 
       results.forEach(([doc, score], index) => {
-        console.log(`   ${index + 1}. Score: ${score.toFixed(3)} | Source: ${doc.metadata.source}`);
+        console.log(
+          `   ${index + 1}. Score: ${score.toFixed(3)} | Source: ${
+            doc.metadata.source
+          }`
+        );
         console.log(`      Content: ${doc.pageContent.substring(0, 80)}...`);
       });
       console.log('');
     }
 
     console.log('✅ Embedding system test completed successfully!');
-
   } catch (error) {
-    console.error('❌ Test failed:', error instanceof Error ? error.message : 'Unknown error');
-    
+    console.error(
+      '❌ Test failed:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+
     if (error instanceof Error && error.message.includes('ChromaDB')) {
       console.log('\n💡 Make sure ChromaDB is running:');
       console.log('   chroma run --host localhost --port 8000');
     }
-    
+
     if (error instanceof Error && error.message.includes('Collection')) {
       console.log('\n💡 Make sure embeddings are created:');
       console.log('   npx ts-node scripts/simple-embed.ts');
