@@ -21,13 +21,17 @@ export class ChatService {
     // Check if embedding service is available
     const isAvailable = await this.embeddingRepository.isAvailable();
     if (!isAvailable) {
-      throw new Error('Embedding service is not available. Please ensure ChromaDB is running.');
+      throw new Error(
+        'Embedding service is not available. Please ensure ChromaDB is running.'
+      );
     }
 
     // Check if embeddings exist
     const embeddingsExist = await this.embeddingRepository.exists();
     if (!embeddingsExist) {
-      throw new Error('No embeddings found. Please run the embedding process first.');
+      throw new Error(
+        'No embeddings found. Please run the embedding process first.'
+      );
     }
 
     // Parse temporal query
@@ -45,8 +49,10 @@ export class ChatService {
 
       // Filter by date and sort chronologically
       relevantDocuments = searchResults
-        .map(result => result.document)
-        .filter(doc => doc.isFromDateRange(dateRange.startDate, dateRange.endDate))
+        .map((result) => result.document)
+        .filter((doc) =>
+          doc.isFromDateRange(dateRange.startDate, dateRange.endDate)
+        )
         .sort((a, b) => {
           const dateA = a.extractDateFromSource();
           const dateB = b.extractDateFromSource();
@@ -57,43 +63,56 @@ export class ChatService {
         });
     } else {
       // For non-temporal queries, use semantic search
-      const searchResults = await this.embeddingRepository.similaritySearch(query, 20);
-      
+      const searchResults = await this.embeddingRepository.similaritySearch(
+        query,
+        20
+      );
+
       // Filter by relevance score
       relevantDocuments = searchResults
-        .filter(result => result.score < 0.5) // Only include relevant results
-        .map(result => result.document);
+        .filter((result) => result.score < 0.5) // Only include relevant results
+        .map((result) => result.document);
     }
 
     // Limit results to prevent token overflow
-    relevantDocuments = relevantDocuments.slice(0, maxResults);
+    // For temporal queries, allow more results for comprehensive summaries
+    const resultLimit = isTemporalQuery ? Math.max(maxResults, 20) : maxResults;
+    relevantDocuments = relevantDocuments.slice(0, resultLimit);
 
     if (relevantDocuments.length === 0) {
       return {
         answer: "I don't have enough data from the logs for that time period.",
         sources: [],
         isTemporalQuery,
-        documentsFound: 0
+        documentsFound: 0,
       };
     }
 
     // Generate AI response
     const context = relevantDocuments
-      .map(doc => doc.getDisplayString())
+      .map((doc) => doc.getDisplayString())
       .join('\n\n---\n\n');
 
-    const answer = await this.aiService.generateResponse(query, context, isTemporalQuery);
-    const sources = relevantDocuments.map(doc => doc.source);
+    const answer = await this.aiService.generateResponse(
+      query,
+      context,
+      isTemporalQuery
+    );
+    const sources = relevantDocuments.map((doc) => doc.source);
 
     return {
       answer,
       sources: [...new Set(sources)], // Remove duplicates
       isTemporalQuery,
-      documentsFound: relevantDocuments.length
+      documentsFound: relevantDocuments.length,
     };
   }
 }
 
 export interface IAIService {
-  generateResponse(query: string, context: string, isTemporalQuery: boolean): Promise<string>;
+  generateResponse(
+    query: string,
+    context: string,
+    isTemporalQuery: boolean
+  ): Promise<string>;
 }

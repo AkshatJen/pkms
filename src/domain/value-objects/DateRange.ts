@@ -3,10 +3,7 @@
  */
 
 export class DateRange {
-  constructor(
-    public readonly startDate: Date,
-    public readonly endDate: Date
-  ) {
+  constructor(public readonly startDate: Date, public readonly endDate: Date) {
     this.validateRange();
   }
 
@@ -95,10 +92,23 @@ export class DateRange {
   /**
    * Create a DateRange for specific month periods (early, mid, late)
    */
-  static monthPeriod(period: 'early' | 'mid' | 'late', monthName: string): DateRange {
+  static monthPeriod(
+    period: 'early' | 'mid' | 'late',
+    monthName: string
+  ): DateRange {
     const monthIndex = [
-      'january', 'february', 'march', 'april', 'may', 'june',
-      'july', 'august', 'september', 'october', 'november', 'december'
+      'january',
+      'february',
+      'march',
+      'april',
+      'may',
+      'june',
+      'july',
+      'august',
+      'september',
+      'october',
+      'november',
+      'december',
     ].indexOf(monthName.toLowerCase());
 
     if (monthIndex === -1) {
@@ -119,6 +129,36 @@ export class DateRange {
       startDate = new Date(year, monthIndex, 21);
       endDate = new Date(year, monthIndex + 1, 0); // Last day of month
     }
+
+    return new DateRange(startDate, endDate);
+  }
+
+  /**
+   * Create a DateRange for an entire month
+   */
+  static fullMonth(monthName: string, year?: number): DateRange {
+    const monthIndex = [
+      'january',
+      'february',
+      'march',
+      'april',
+      'may',
+      'june',
+      'july',
+      'august',
+      'september',
+      'october',
+      'november',
+      'december',
+    ].indexOf(monthName.toLowerCase());
+
+    if (monthIndex === -1) {
+      throw new Error(`Invalid month name: ${monthName}`);
+    }
+
+    const targetYear = year || new Date().getFullYear();
+    const startDate = new Date(targetYear, monthIndex, 1);
+    const endDate = new Date(targetYear, monthIndex + 1, 0); // Last day of month
 
     return new DateRange(startDate, endDate);
   }

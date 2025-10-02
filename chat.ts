@@ -77,12 +77,12 @@ function getDateRangeForQuery(query: string): {
     return { startDate, endDate };
   }
 
-  // Handle "late August", "early September", etc. (but not "work in August")
-  const monthMatch = queryLower.match(
+  // Handle "late August", "early September", etc.
+  const monthPeriodMatch = queryLower.match(
     /\b(late|early|mid)\s+(january|february|march|april|may|june|july|august|september|october|november|december)\b/
   );
-  if (monthMatch) {
-    const [, period, monthName] = monthMatch;
+  if (monthPeriodMatch) {
+    const [, period, monthName] = monthPeriodMatch;
     const monthIndex = [
       'january',
       'february',
@@ -112,6 +112,34 @@ function getDateRangeForQuery(query: string): {
       startDate = new Date(year, monthIndex, 21);
       endDate = new Date(year, monthIndex + 1, 0); // Last day of month
     }
+
+    return { startDate, endDate };
+  }
+
+  // Handle full month queries like "August", "in August", "what did I do in August"
+  const fullMonthMatch = queryLower.match(
+    /\b(?:in\s+)?(january|february|march|april|may|june|july|august|september|october|november|december)\b/
+  );
+  if (fullMonthMatch) {
+    const [, monthName] = fullMonthMatch;
+    const monthIndex = [
+      'january',
+      'february',
+      'march',
+      'april',
+      'may',
+      'june',
+      'july',
+      'august',
+      'september',
+      'october',
+      'november',
+      'december',
+    ].indexOf(monthName);
+
+    const year = now.getFullYear();
+    const startDate = new Date(year, monthIndex, 1);
+    const endDate = new Date(year, monthIndex + 1, 0); // Last day of month
 
     return { startDate, endDate };
   }
@@ -177,7 +205,9 @@ async function getAnswer(query: string) {
   }
 
   // Limit the number of documents to prevent token overflow
-  filtered = filtered.slice(0, 10);
+  // For temporal queries, allow more results for comprehensive summaries
+  const resultLimit = startDate !== null && endDate !== null ? 20 : 10;
+  filtered = filtered.slice(0, resultLimit);
 
   // Check if we have any relevant documents
   if (filtered.length === 0) {
@@ -196,15 +226,38 @@ async function getAnswer(query: string) {
 
   // Enhanced prompt template with date awareness
   const currentDate = new Date().toISOString().split('T')[0];
+  const isTemporalQuery = startDate !== null && endDate !== null;
+
   const prompt = PromptTemplate.fromTemplate(`
     You are a professional assistant reviewing detailed work logs. Today's date is ${currentDate}.
 
-    Use the context below to generate a full, rich, and organized summary. Be as specific as possible about dates and tasks.
+    Use the context below to generate a comprehensive, well-organized summary. Be as specific as possible about dates, tasks, and activities.
     Each entry is prefixed with [YYYY-MM-DD] to show the date.
 
-    When answering temporal queries like "last week" or "this week", focus on the relevant date range and organize the response chronologically.
+    ${
+      isTemporalQuery
+        ? `For temporal queries, create a detailed summary organized by themes/categories such as:
+      - 🤖 Technical Work (LLM, AI, development projects)
+      - 🏢 Team Collaboration & Meetings
+      - 📊 Project Management & Planning
+      - 🎯 Learning & Development
+      - 🏖️ Time Off & Personal
+      - ☁️ Infrastructure & Tools
+      - 💼 Administrative Tasks
 
-    ONLY say "I don't have enough data from the logs for that time period" if the context is completely empty or contains no relevant information.
+      Within each category, mention specific dates, tasks, and outcomes. Include details about:
+      - What was accomplished
+      - Who was involved (meetings, collaborations)
+      - Any tools, technologies, or platforms used
+      - Outcomes and next steps
+      - Any challenges or blockers encountered
+
+      Organize the response chronologically within each category when possible.`
+        : 'Focus on the content and provide relevant information based on semantic similarity.'
+    }
+
+    NEVER say "I don't have enough data from the logs for that time period" unless the context is completely empty.
+    If there is ANY relevant information in the context, provide a detailed summary of what was found.
 
     Context:
     {context}

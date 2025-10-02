@@ -57,15 +57,24 @@ export class TemporalQueryParser {
     }
 
     // Handle "late August", "early September", etc.
-    const monthMatch = queryLower.match(
+    const monthPeriodMatch = queryLower.match(
       /\b(late|early|mid)\s+(january|february|march|april|may|june|july|august|september|october|november|december)\b/
     );
-    if (monthMatch) {
-      const [, period, monthName] = monthMatch;
+    if (monthPeriodMatch) {
+      const [, period, monthName] = monthPeriodMatch;
       return DateRange.monthPeriod(
         period as 'early' | 'mid' | 'late',
         monthName
       );
+    }
+
+    // Handle full month queries like "August", "in August", "what did I do in August"
+    const fullMonthMatch = queryLower.match(
+      /\b(?:in\s+)?(january|february|march|april|may|june|july|august|september|october|november|december)\b/
+    );
+    if (fullMonthMatch) {
+      const [, monthName] = fullMonthMatch;
+      return DateRange.fullMonth(monthName);
     }
 
     return null;
